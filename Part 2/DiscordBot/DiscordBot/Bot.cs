@@ -2,6 +2,7 @@
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 using Discord;
 using Discord.Commands;
@@ -13,12 +14,16 @@ namespace DiscordBot
     {
         private ServiceProvider? _serviceProvider;
 
+        private readonly ILogger<Bot> _logger;
         private readonly IConfiguration _configuration;
         private readonly DiscordSocketClient _client;
         private readonly CommandService _commands;
 
-        public Bot(IConfiguration configuration)
+        public Bot(
+            ILogger<Bot> logger,
+            IConfiguration configuration)
         {
+            _logger = logger;
             _configuration = configuration;
 
             DiscordSocketConfig config = new()
@@ -34,6 +39,8 @@ namespace DiscordBot
         {
             string discordToken = _configuration["DiscordToken"] ?? throw new Exception("Missing Discord token");
 
+            _logger.LogInformation($"Starting up with token {discordToken}");
+
             _serviceProvider = services;
 
             await _commands.AddModulesAsync(Assembly.GetExecutingAssembly(), _serviceProvider);
@@ -46,6 +53,8 @@ namespace DiscordBot
 
         public async Task StopAsync()
         {
+            _logger.LogInformation("Shutting down");
+
             if (_client != null)
             {
                 await _client.LogoutAsync();
@@ -61,6 +70,9 @@ namespace DiscordBot
                 return;
             }
 
+            // Log the received message
+            _logger.LogInformation($"{DateTime.Now.ToShortTimeString()} - {message.Author}: {message.Content}");
+
             // Check if the message starts with !
             int position = 0;
             bool messageIsCommand = message.HasCharPrefix('!', ref position);
@@ -72,8 +84,6 @@ namespace DiscordBot
                     new SocketCommandContext(_client, message),
                     position,
                     _serviceProvider);
-
-                return;
             }
         }
     }
